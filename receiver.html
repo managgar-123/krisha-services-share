@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfinityShare - Download</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #f4f7f6; }
+        .card { background: white; max-width: 400px; margin: 0 auto; padding: 40px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .btn { background: #2ecc71; color: white; padding: 15px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 18px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>📥 Incoming File</h2>
+        <p id="fileData">Waiting for connection...</p>
+        <div id="status" style="color: orange; font-weight: bold;">Connecting...</div>
+        <button id="downloadBtn" class="btn">Download File</button>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        const urlParams = new URLSearchParams(window.location.search);
+        const senderId = urlParams.get('id');
+        const fileName = urlParams.get('name');
+
+        if(fileName) document.getElementById('fileData').innerText = fileName;
+
+        peer.on('open', () => {
+            if (!senderId) return document.getElementById('status').innerText = "Error: Bad Link";
+            
+            const conn = peer.connect(senderId);
+            conn.on('open', () => document.getElementById('status').innerText = "Connected! Waiting...");
+
+            let fileParts = [];
+            let fileMeta = {};
+
+            conn.on('data', (data) => {
+                if (data.type === 'meta') {
+                    fileMeta = data;
+                    document.getElementById('status').innerText = "Receiving Data...";
+                } else if (data.type === 'chunk') {
+                    fileParts.push(data.data);
+                    // Simple rebuild (for <500MB files to keep it simple)
+                    const blob = new Blob(fileParts, { type: fileMeta.filetype });
+                    const url = URL.createObjectURL(blob);
+                    
+                    document.getElementById('status').innerText = "Done!";
+                    const btn = document.getElementById('downloadBtn');
+                    btn.style.display = "inline-block";
+                    btn.onclick = () => {
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = fileMeta.name;
+                        a.click();
+                    };
+                }
+            });
+        });
+    </script>
+</body>
+</html>

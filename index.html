@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InfinityShare - Send</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f7f6; }
+        .card { background: white; max-width: 400px; margin: 0 auto; padding: 40px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .btn { background: #4a90e2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-size: 16px; }
+        input[type="file"] { margin: 20px 0; }
+        #linkBox { background: #eee; padding: 10px; word-break: break-all; margin-top: 10px; display: none; border-radius: 5px; font-size: 12px;}
+        #qrcode { display: flex; justify-content: center; margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🚀 InfinityShare</h2>
+        <p>Select a file to create a secure link.</p>
+        <input type="file" id="fileInput">
+        <div id="status" style="color: orange; font-weight: bold;">Connecting...</div>
+        
+        <div id="linkBox"></div>
+        <div id="qrcode"></div>
+    </div>
+
+    <script>
+        const peer = new Peer();
+        let conn = null;
+
+        peer.on('open', (id) => {
+            document.getElementById('status').innerText = "Ready! Select a file.";
+            document.getElementById('status').style.color = "green";
+
+            document.getElementById('fileInput').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                // --- THE MAGIC FIX ---
+                // This automatically finds your website URL, no matter what it is.
+                let currentUrl = window.location.href;
+                // Remove 'index.html' if it's there, and remove trailing slash
+                let cleanUrl = currentUrl.replace('index.html', '').replace(/\/$/, "");
+                // Create the receiver link
+                const link = `${cleanUrl}/receiver.html?id=${id}&name=${encodeURIComponent(file.name)}&size=${file.size}`;
+                // ---------------------
+
+                document.getElementById('linkBox').style.display = 'block';
+                document.getElementById('linkBox').innerText = link;
+                
+                // Generate QR
+                document.getElementById('qrcode').innerHTML = "";
+                new QRCode(document.getElementById("qrcode"), { text: link, width: 150, height: 150 });
+                
+                document.getElementById('status').innerText = "Scan QR or Share Link!";
+            });
+        });
+
+        peer.on('connection', (connection) => {
+            conn = connection;
+            conn.on('open', () => {
+                const file = document.getElementById('fileInput').files[0];
+                const reader = new FileReader();
+                // Send metadata
+                conn.send({ type: 'meta', name: file.name, size: file.size, filetype: file.type });
+                // Stream file
+                reader.onload = (e) => conn.send({ type: 'chunk', data: e.target.result });
+                // Read in chunks (simplified for reliability)
+                reader.readAsArrayBuffer(file); 
+                document.getElementById('status').innerText = "Sending file... Keep open!";
+            });
+        });
+    </script>
+</body>
+</html>
