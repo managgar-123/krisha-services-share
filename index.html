@@ -6,28 +6,54 @@
     <title>InfinityShare - Send</title>
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f7f6; }
-        .card { background: white; max-width: 400px; margin: 0 auto; padding: 40px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .btn { background: #4a90e2; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; font-size: 16px; }
+        .card { background: white; max-width: 400px; margin: 0 auto; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        
+        /* Button Styles */
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; font-size: 14px; font-weight: bold; color: white; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-upload { background: #4a90e2; width: 100%; justify-content: center; }
+        .btn-save { background: #333; }
+        .btn-share { background: #2ecc71; }
+        
         input[type="file"] { margin: 20px 0; }
-        #linkBox { background: #eee; padding: 10px; word-break: break-all; margin-top: 10px; display: none; border-radius: 5px; font-size: 12px;}
+        
+        #linkBox { background: #eef; padding: 10px; word-break: break-all; margin-top: 15px; display: none; border-radius: 5px; font-size: 12px; color: #555; }
+        
         #qrcode { display: flex; justify-content: center; margin-top: 20px; }
+        
+        /* Control buttons container (Hidden by default) */
+        #qrControls { display: none; margin-top: 15px; gap: 10px; justify-content: center; }
     </style>
 </head>
 <body>
+
     <div class="card">
         <h2>🚀 InfinityShare</h2>
-        <div style="background: #f8f9fa; border: 1px dashed #ccc; padding: 10px; margin: 20px 0; font-size: 12px; color: #777;">
-    Support us by disabling AdBlock ❤️
-    </div>
-        <p>Select a file to create a secure link.</p>
+        <p>Select a file to generate a QR code.</p>
+        
         <input type="file" id="fileInput">
+        
         <div id="status" style="color: orange; font-weight: bold;">Connecting...</div>
         
-        <div id="linkBox"></div>
         <div id="qrcode"></div>
+
+        <div id="qrControls">
+            <button onclick="downloadQR()" class="btn btn-save">⬇️ Save</button>
+            <button onclick="shareQR()" class="btn btn-share">📤 Share</button>
+        </div>
+
+        <div id="linkBox"></div>
+        
+        <div style="margin-top:20px; font-size:11px; color:#aaa; border-top:1px solid #eee; padding-top:10px;">
+            <p>Your Ad Here</p>
+        </div>
     </div>
+
+    <a href="https://www.buymeacoffee.com/YOUR_USERNAME_HERE" target="_blank" style="position: fixed; bottom: 20px; right: 20px; background: #FFDD00; color: #000; padding: 12px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2); z-index: 1000;">
+        ☕ Donate
+    </a>
 
     <script>
         const peer = new Peer();
@@ -41,46 +67,79 @@
                 const file = event.target.files[0];
                 if (!file) return;
 
-                // --- THE MAGIC FIX ---
-                // This automatically finds your website URL, no matter what it is.
+                // 1. Get current URL automatically
                 let currentUrl = window.location.href;
-                // Remove 'index.html' if it's there, and remove trailing slash
                 let cleanUrl = currentUrl.replace('index.html', '').replace(/\/$/, "");
-                // Create the receiver link
                 const link = `${cleanUrl}/receiver.html?id=${id}&name=${encodeURIComponent(file.name)}&size=${file.size}`;
-                // ---------------------
 
+                // 2. Show Link Box
                 document.getElementById('linkBox').style.display = 'block';
                 document.getElementById('linkBox').innerText = link;
                 
-                // Generate QR
-                document.getElementById('qrcode').innerHTML = "";
-                new QRCode(document.getElementById("qrcode"), { text: link, width: 150, height: 150 });
+                // 3. Generate QR Code
+                const qrContainer = document.getElementById('qrcode');
+                qrContainer.innerHTML = ""; // Clear old QR
+                new QRCode(qrContainer, { text: link, width: 180, height: 180 });
                 
-                document.getElementById('status').innerText = "Scan QR or Share Link!";
+                // 4. Show Save/Share buttons
+                document.getElementById('qrControls').style.display = 'flex';
+                document.getElementById('status').innerText = "File Ready! Scan or Share.";
             });
         });
+
+        // --- NEW FUNCTIONS FOR BUTTONS ---
+
+        function downloadQR() {
+            // Find the canvas image created by the QR library
+            const canvas = document.querySelector('#qrcode canvas');
+            if(canvas) {
+                // Convert to image URL
+                const image = canvas.toDataURL("image/png");
+                // Create a fake link to trigger download
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = 'infinity-share-qr.png';
+                link.click();
+            } else {
+                alert("Please select a file first!");
+            }
+        }
+
+        function shareQR() {
+            const canvas = document.querySelector('#qrcode canvas');
+            if (canvas) {
+                // Convert canvas to a 'Blob' (file-like object)
+                canvas.toBlob(function(blob) {
+                    const file = new File([blob], "qr-code.png", { type: "image/png" });
+                    
+                    // Use the native sharing API (Works on Mobile)
+                    if (navigator.share) {
+                        navigator.share({
+                            title: 'Download File',
+                            text: 'Scan this QR to download the file!',
+                            files: [file]
+                        }).catch(console.error);
+                    } else {
+                        alert("Your browser does not support direct sharing. Use the 'Save' button instead.");
+                    }
+                });
+            }
+        }
+
+        // --- END NEW FUNCTIONS ---
 
         peer.on('connection', (connection) => {
             conn = connection;
             conn.on('open', () => {
                 const file = document.getElementById('fileInput').files[0];
                 const reader = new FileReader();
-                // Send metadata
                 conn.send({ type: 'meta', name: file.name, size: file.size, filetype: file.type });
-                // Stream file
                 reader.onload = (e) => conn.send({ type: 'chunk', data: e.target.result });
-                // Read in chunks (simplified for reliability)
                 reader.readAsArrayBuffer(file); 
-                document.getElementById('status').innerText = "Sending file... Keep open!";
+                document.getElementById('status').innerText = "Sending... DO NOT CLOSE!";
+                document.getElementById('status').style.color = "red";
             });
         });
     </script>
-    <a href="buymeacoffee.com/manishkumar14" target="_blank" style="position: fixed; bottom: 20px; right: 20px; background: #FFDD00; color: #000; padding: 12px 20px; border-radius: 30px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 10px; z-index: 1000;">
-    <span>☕</span> Buy me a Coffee
-</a>
 </body>
-
 </html>
-
-
